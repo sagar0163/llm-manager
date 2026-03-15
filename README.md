@@ -1,63 +1,84 @@
 # LLM Manager
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version">
-  <img src="https://img.shields.io/badge/python-3.10+-green.svg" alt="Python">
-</p>
+A resilient multi-provider LLM wrapper with automatic failover, rate limiting, cost tracking, and streaming support.
 
-A resilient, production-ready wrapper for multiple LLM providers with automatic failover.
+![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
 
 ## Features
 
-- 🔄 **Automatic Failover** - Primary → Secondary → Local
-- 🌐 **Multi-Provider** - Gemini, OpenAI, Ollama, Groq support
-- ⚡ **Async/Await** - Full async support
-- 📝 **Comprehensive Logging** - Every failure logged
-- 🛡️ **Safe Fallbacks** - Local cache + hardcoded responses
-- ⚙️ **Environment-Driven** - .env configuration
-- 🔁 **Retry Logic** - Exponential backoff on 5xx errors
+- 🔄 **Multi-Provider Support** - OpenAI, Anthropic, Google Gemini, and more
+- 🛡️ **Automatic Failover** - Automatically switch providers on failure
+- 💰 **Cost Tracking** - Track usage and costs across providers
+- ⚡ **Rate Limiting** - Built-in rate limit handling
+- 📡 **Streaming Support** - Real-time response streaming
+- 📝 **System Prompts** - Pre-built system prompts library
+
+## Installation
+
+```bash
+pip install llm-manager
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/sagar0163/llm-manager.git
+cd llm-manager
+pip install -r requirements.txt
+```
 
 ## Quick Start
 
-```bash
-# Install dependencies
-pip install python-dotenv aiohttp google-generativeai openai groq
-
-# Copy config
-cp .env.example .env
-# Add your API keys
-
-# Use in code
+```python
 from llm_manager import LLMManager
 
-manager = LLMManager()
-await manager.initialize()
+# Initialize with multiple providers
+manager = LLMManager(
+    providers=["openai", "anthropic", "gemini"],
+    default_provider="openai"
+)
 
-response = await manager.generate_text("Hello!")
-print(response.text)
+# Make a request (auto-failover on failure)
+response = manager.chat("Hello! How are you?")
+print(response)
 ```
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| PRIMARY_PROVIDER | First LLM to try | gemini |
-| SECONDARY_PROVIDER | Fallback LLM | groq |
-| LOCAL_PROVIDER_URL | Ollama URL | http://localhost:11434 |
-| FALLBACK_STRATEGY | Failover order | ordered |
+See [.env.example](.env.example) for environment variables.
 
-## Architecture
+```bash
+# Copy and configure
+cp .env.example .env
+# Edit .env with your API keys
+```
 
-```
-LLMManager
-├── GeminiProvider    (Google Gemini)
-├── OpenAIProvider   (GPT-4/3.5)
-├── OllamaProvider   (Local models)
-├── GroqProvider     (Fast inference)
-└── SafeFallbackCache
-```
+## Modules
+
+| Module | Description |
+|--------|-------------|
+| `llm_manager.py` | Main LLM wrapper |
+| `caching.py` | Response caching |
+| `cost_tracking.py` | Cost analytics |
+| `rate_limit.py` | Rate limit handling |
+| `streaming.py` | Streaming responses |
+| `batch_processing.py` | Batch requests |
+| `system_prompts.py` | Pre-built prompts |
+
+## Documentation
+
+See [API Documentation](API.md) for detailed usage.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-MIT
-# Updated
+MIT License - see [LICENSE](LICENSE)
+
+---
+
+⭐ Star this repo if you find it useful!

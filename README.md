@@ -1,85 +1,179 @@
-# LLM Manager
+# llm-manager
 
-A resilient multi-provider LLM wrapper with automatic failover, rate limiting, cost tracking, and streaming support.
+> **Resilient multi-provider LLM wrapper with automatic failover, load balancing, and cost optimization**
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
+[![CI](https://github.com/sagar0163/llm-manager/workflows/CI/badge.svg)](https://github.com/sagar0163/llm-manager/actions/workflows/ci.yml)
+[![Release](https://github.com/sagar0163/llm-manager/workflows/Release/badge.svg)](https://github.com/sagar0163/llm-manager/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org/)
 
-## Features
+---
 
-- 🔄 **Multi-Provider Support** - OpenAI, Anthropic, Google Gemini, and more
-- 🛡️ **Automatic Failover** - Automatically switch providers on failure
-- 💰 **Cost Tracking** - Track usage and costs across providers
-- ⚡ **Rate Limiting** - Built-in rate limit handling
-- 📡 **Streaming Support** - Real-time response streaming
-- 📝 **System Prompts** - Pre-built system prompts library
+## 🎯 Problem
 
-## Installation
+Production LLM applications need reliability: provider outages, rate limits, cost spikes, and model deprecations break apps. Writing retry/fallback logic for every provider is error-prone.
+
+## 💡 Solution
+
+A **production-ready LLM gateway** that handles:
+
+- **Automatic failover** — seamless switch on 429, 5xx, timeout, circuit open
+- **Load balancing** — round-robin, weighted, latency-aware, cost-aware
+- **Cost optimization** — route to cheapest capable model, budget enforcement
+- **Unified interface** — one API for OpenAI, Anthropic, NVIDIA, local, custom
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        LLM Manager                               │
+├──────────────┬──────────────┬──────────────┬────────────────────┤
+│  Provider    │  Router      │  Circuit     │  Metrics           │
+│  Registry    │  (strategies)│  Breaker     │  (Prometheus)      │
+└──────────────┴──────────────┴──────────────┴────────────────────┘
+```
+
+## 🚀 Quick Start
 
 ```bash
 pip install llm-manager
 ```
 
-Or install from source:
+```python
+from llm_manager import LLMManager, ProviderConfig
 
-```bash
-git clone https://github.com/sagar0163/llm-manager.git
-cd llm-manager
-pip install -r requirements.txt
+manager = LLMManager([
+    ProviderConfig(
+        name="openai",
+        provider="openai",
+        models=["gpt-4o", "gpt-4o-mini"],
+        api_key="sk-...",
+        weight=0.5,
+        cost_per_1k={"input": 0.005, "output": 0.015}
+    ),
+    ProviderConfig(
+        name="anthropic",
+        provider="anthropic",
+        models=["claude-3-5-sonnet", "claude-3-5-haiku"],
+        api_key="sk-ant-...",
+        weight=0.3,
+        cost_per_1k={"input": 0.003, "output": 0.015}
+    ),
+    ProviderConfig(
+        name="nvidia-free",
+        provider="nvidia",
+        models=["nvidia/nemotron-3-ultra-550b-a55b"],
+        api_key="nvapi-...",
+        weight=0.2,
+        cost_per_1k={"input": 0.0, "output": 0.0}  # Free tier
+    ),
+])
+
+# Use it — automatic failover built in
+response = await manager.chat.completions.create(
+    model="auto",  # Let router pick best
+    messages=[{"role": "user", "content": "Explain quantum computing"}],
+    max_tokens=500,
+    budget_usd=0.01  # Optional cost cap
+)
 ```
 
-## Quick Start
+## ⚙️ Configuration
+
+```yaml
+# llm_manager.yaml
+router:
+  strategy: "cost_aware"  # round_robin, weighted, latency_aware, cost_aware
+  fallback_order: ["nvidia-free", "openai", "anthropic"]
+
+circuit_breaker:
+  failure_threshold: 5
+  recovery_timeout: 60
+  half_open_requests: 3
+
+retry:
+  max_attempts: 3
+  base_delay: 1.0
+  max_delay: 30.0
+  exponential_base: 2
+
+budget:
+  daily_usd: 10.0
+  monthly_usd: 200.0
+  alert_at_percent: 80
+
+providers:
+  openai:
+    base_url: "https://api.openai.com/v1"
+    timeout: 30
+  anthropic:
+    base_url: "https://api.anthropic.com"
+    timeout: 30
+  nvidia:
+    base_url: "https://integrate.api.nvidia.com/v1"
+    timeout: 60
+```
+
+## 🎯 Routing Strategies
+
+| Strategy | Behavior |
+|---|---|
+| `round_robin` | Even distribution across healthy providers |
+| `weighted` | Distribute by configured weights |
+| `latency_aware` | Route to fastest healthy provider |
+| `cost_aware` | Route to cheapest capable model (default) |
+| `priority` | Try in order until success |
+
+## 📊 Metrics (Prometheus)
 
 ```python
-from llm_manager import LLMManager
+# Exposes /metrics endpoint
+from llm_manager import metrics
 
-# Initialize with multiple providers
-manager = LLMManager(
-    providers=["openai", "anthropic", "gemini"],
-    default_provider="openai"
-)
-
-# Make a request (auto-failover on failure)
-response = manager.chat("Hello! How are you?")
-print(response)
+metrics.requests_total        # Total requests by provider/model/outcome
+metrics.request_duration      # Latency histograms
+metrics.tokens_used           # Input/output tokens by model
+metrics.cost_usd              # Cumulative cost
+metrics.circuit_state         # Circuit breaker states
+metrics.fallback_total        # Failover events
 ```
 
-## Configuration
+## 🔌 Custom Providers
 
-See [.env.example](.env.example) for environment variables.
+```python
+from llm_manager import BaseProvider
+
+class MyCustomProvider(BaseProvider):
+    async def chat_completion(self, request):
+        # Your implementation
+        pass
+    
+    async def health_check(self):
+        # Return True/False
+        pass
+
+manager.register_provider("my-custom", MyCustomProvider())
+```
+
+## 🧪 Testing
 
 ```bash
-# Copy and configure
-cp .env.example .env
-# Edit .env with your API keys
+pytest tests/ -v
+pytest tests/ --cov=llm_manager
 ```
 
-## Modules
+## 📦 Release
 
-| Module | Description |
-|--------|-------------|
-| `llm_manager.py` | Main LLM wrapper |
-| `caching.py` | Response caching |
-| `cost_tracking.py` | Cost analytics |
-| `rate_limit.py` | Rate limit handling |
-| `streaming.py` | Streaming responses |
-| `batch_processing.py` | Batch requests |
-| `system_prompts.py` | Pre-built prompts |
+```bash
+poetry version patch
+git push origin main --tags
+# GitHub Actions: test → build → release → PyPI
+```
 
-## Documentation
+## 📄 License
 
-See [API Documentation](API.md) for detailed usage.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
-
-## License
-
-MIT License - see [LICENSE](LICENSE)
+MIT License
 
 ---
 
-⭐ Star this repo if you find it useful!
-# Update
+**Build resilient AI apps that never go down**

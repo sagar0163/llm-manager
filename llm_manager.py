@@ -385,8 +385,7 @@ class ProviderFactory:
     
     _providers = {
         Provider.GEMINI: GeminiProvider,
-        Provider.OPENAI: OpenAIProviderOLLAMA: Oll,
-        Provider.amaProvider,
+        Provider.OPENAI: OpenAIProvider,
         Provider.LOCAL: OllamaProvider,
         Provider.GROQ: GroqProvider,
     }

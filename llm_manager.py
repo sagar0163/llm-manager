@@ -127,7 +127,8 @@ class SafeFallbackCache:
         if entry:
             # Check if expired (24 hours)
             cached_time = datetime.fromisoformat(entry.get('timestamp', '2000-01-01'))
-            if (datetime.now() - cached_time).hours < 24:
+            age_seconds = (datetime.now() - cached_time).total_seconds()
+            if age_seconds / 3600 < 24:
                 return entry.get('response')
         return None
     

@@ -206,6 +206,9 @@ class GeminiProvider(BaseLLMProvider):
     """Google Gemini provider"""
     
     async def initialize(self) -> bool:
+        if not self.config.api_key:
+            logger.warning(f"⚠️ Gemini API key not provided, skipping initialization")
+            return False
         try:
             import google.generativeai as genai
             genai.configure(api_key=self.config.api_key)
@@ -250,6 +253,9 @@ class OpenAIProvider(BaseLLMProvider):
     """OpenAI provider"""
     
     async def initialize(self) -> bool:
+        if not self.config.api_key:
+            logger.warning(f"⚠️ OpenAI API key not provided, skipping initialization")
+            return False
         try:
             from openai import AsyncOpenAI
             self.client = AsyncOpenAI(
@@ -348,6 +354,9 @@ class GroqProvider(BaseLLMProvider):
     """Groq provider (fast inference)"""
     
     async def initialize(self) -> bool:
+        if not self.config.api_key:
+            logger.warning(f"⚠️ Groq API key not provided, skipping initialization")
+            return False
         try:
             from groq import AsyncGroq
             self.client = AsyncGroq(api_key=self.config.api_key)

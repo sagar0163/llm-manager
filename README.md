@@ -39,6 +39,26 @@ A **production-ready LLM gateway** that handles:
 pip install llm-manager
 ```
 
+### Local-Only (No API Keys Required)
+
+Works out-of-the-box with local Ollama! If no API keys are provided, it automatically routes to your local Ollama instance (defaults to http://localhost:11434).
+
+```python
+import asyncio
+from llm_manager import LLMManager
+
+async def main():
+    manager = LLMManager()
+    await manager.initialize()
+    
+    response = await manager.generate_text("Explain quantum computing")
+    print(response.text)
+
+asyncio.run(main())
+```
+
+### Multi-Provider Production Setup
+
 ```python
 from llm_manager import LLMManager, ProviderConfig
 

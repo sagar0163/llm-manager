@@ -45,8 +45,8 @@ LLM Manager is a Python library that provides a unified interface for multiple L
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                 External LLM APIs                            │
-│         (OpenAI, Anthropic, Google Gemini)                 │
-└─────────────────────────────────────────────────────────────┘
+│         (OpenAI, Google Gemini, Groq, Ollama, local)       │
+└─────────────────────────────────────────────────────────────
 ```
 
 ## 3. Core Components

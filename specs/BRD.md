@@ -13,8 +13,9 @@
 ## 2. Features
 
 ### Core Features
-- **Multi-Provider Support:** OpenAI, Anthropic, Google Gemini
+- **Multi-Provider Support:** OpenAI, Google Gemini, Groq, Ollama (local)
 - **Automatic Failover:** Automatically switch providers on failure
+- **Planned:** Anthropic, NVIDIA, Mistral, Cohere providers (future release)
 - **Cost Tracking:** Track usage and costs across providers
 - **Rate Limiting:** Built-in rate limit handling with retries
 - **Streaming Support:** Real-time response streaming
@@ -57,7 +58,7 @@
 ## 5. Requirements
 
 ### Functional Requirements
-- FR1: Support multiple LLM providers
+- FR1: Support multiple LLM providers (OpenAI, Gemini, Groq, Ollama)
 - FR2: Provide unified API interface
 - FR3: Implement automatic failover logic
 - FR4: Track API usage and calculate costs
@@ -88,3 +89,16 @@
 
 *Document Version: 1.0*  
 *Created: 2026-03-17*
+
+## 7. Provider Status Clarification
+
+| Provider | Status |
+|----------|--------|
+| OpenAI | ✅ Supported |
+| Google Gemini | ✅ Supported |
+| Groq | ✅ Supported |
+| Ollama (local) | ✅ Supported |
+| Anthropic | 📋 Planned for future release |
+| NVIDIA | 📋 Planned for future release |
+| Mistral | 📋 Planned for future release |
+| Cohere | 📋 Planned for future release |

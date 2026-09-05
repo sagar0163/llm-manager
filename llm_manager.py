@@ -39,10 +39,9 @@ logger = logging.getLogger("LLMManager")
 # =============================================================================
 
 class Provider(Enum):
-    """Supported LLM providers"""
+    """Supported LLM providers (currently implemented)"""
     GEMINI = "gemini"
     OPENAI = "openai"
-    ANTHROPIC = "anthropic"
     GROQ = "groq"
     OLLAMA = "ollama"
     LOCAL = "local"
@@ -464,9 +463,19 @@ class LLMManager:
     
     def _load_env_config(self) -> Dict[str, Any]:
         """Load configuration from environment variables"""
+        has_api_keys = any([
+            os.getenv('GEMINI_API_KEY'),
+            os.getenv('OPENAI_API_KEY'),
+            os.getenv('ANTHROPIC_API_KEY'),
+            os.getenv('GROQ_API_KEY')
+        ])
+        
+        default_primary = 'gemini' if has_api_keys else 'ollama'
+        default_secondary = 'groq' if has_api_keys else 'ollama'
+        
         return {
-            'primary_provider': os.getenv('PRIMARY_PROVIDER', 'gemini').lower(),
-            'secondary_provider': os.getenv('SECONDARY_PROVIDER', 'groq').lower(),
+            'primary_provider': os.getenv('PRIMARY_PROVIDER', default_primary).lower(),
+            'secondary_provider': os.getenv('SECONDARY_PROVIDER', default_secondary).lower(),
             'local_provider_url': os.getenv('LOCAL_PROVIDER_URL', 'http://localhost:11434'),
             'fallback_strategy': os.getenv('FALLBACK_STRATEGY', 'ordered'),
             
@@ -491,14 +500,16 @@ class LLMManager:
         self.primary = await self._create_provider(
             self.config['primary_provider'],
             self.config.get(f"{self.config['primary_provider']}_api_key"),
-            self.config.get(f"{self.config['primary_provider']}_model", "default")
+            self.config.get(f"{self.config['primary_provider']}_model", "default"),
+            self.config.get('local_provider_url') if self.config['primary_provider'] == 'ollama' else None
         )
         
         # Initialize secondary
         self.secondary = await self._create_provider(
             self.config['secondary_provider'],
             self.config.get(f"{self.config['secondary_provider']}_api_key"),
-            self.config.get(f"{self.config['secondary_provider']}_model", "default")
+            self.config.get(f"{self.config['secondary_provider']}_model", "default"),
+            self.config.get('local_provider_url') if self.config['secondary_provider'] == 'ollama' else None
         )
         
         # Initialize local (Ollama)

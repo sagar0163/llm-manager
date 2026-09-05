@@ -207,8 +207,8 @@ class TestLLMConfig:
     def test_load_env_config_defaults(self, monkeypatch):
         manager = LLMManager()
         cfg = manager.config
-        assert cfg["primary_provider"] == "gemini"
-        assert cfg["secondary_provider"] == "groq"
+        assert cfg["primary_provider"] == "ollama"
+        assert cfg["secondary_provider"] == "ollama"
         assert cfg["local_provider_url"] == "http://localhost:11434"
         assert cfg["fallback_strategy"] == "ordered"
         assert cfg["gemini_model"] == "gemini-1.5-flash"

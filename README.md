@@ -20,7 +20,7 @@ A **production-ready LLM gateway** that handles:
 - **Automatic failover** — seamless switch on 429, 5xx, timeout, circuit open
 - **Load balancing** — round-robin, weighted, latency-aware, cost-aware
 - **Cost optimization** — route to cheapest capable model, budget enforcement
-- **Unified interface** — one API for OpenAI, Anthropic, NVIDIA, local, custom
+- **Unified interface** — one API for OpenAI, Groq, Ollama, local
 
 ## 🏗️ Architecture
 

@@ -1,0 +1,11 @@
+[
+  {
+    "timestamp": "2026-09-06T01:13:28.929207",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "input_tokens": 1000000,
+    "output_tokens": 500000,
+    "cost": 7.5,
+    "latency_ms": null
+  }
+]

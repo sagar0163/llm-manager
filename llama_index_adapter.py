@@ -1,5 +1,4 @@
-"""
-LlamaIndex Integration Adapter for LLM Manager
+"""LlamaIndex Integration Adapter for LLM Manager
 
 This module provides a LlamaIndex integration that exposes llm-manager as a
 query pipeline node, enabling seamless use of llm-manager's failover/cost-tracking
@@ -16,22 +15,17 @@ Usage:
     
     from llama_index.core import VectorStoreIndex, Document
     documents = [Document(text="...")]
-    index = VectorStoreIndex.from_documents(documents)
-    query_engine = index.as_query_engine(llm=llm)
+    index = VectorStoreIndex.from_documents(documents, llm=llm)
+    query_engine = index.as_query_engine()
     response = query_engine.query("What is this about?")
 """
 
 import asyncio
 import logging
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List
 
-from llama_index.core import (
-    BaseQueryEngine,
-    QueryBundle,
-    NodeWithScore,
-)
+from llama_index.core import QueryBundle
 from llama_index.core.llms import CustomLLM, LLMMetadata
-from llama_index.core.base.llms.base import CustomLLMPredict
 
 from llm_manager import LLMManager, LLMResponse, ProviderConfig, Provider
 
@@ -39,29 +33,13 @@ logger = logging.getLogger(__name__)
 
 
 class LlamaIndexLLM(CustomLLM):
-    """
-    A LlamaIndex-compatible LLM wrapper that uses llm-manager under the hood.
+    """A LlamaIndex-compatible LLM wrapper that uses llm-manager under the hood.
     
     This wrapper provides LlamaIndex integration with:
-    - Automatic failover (Primary → Secondary → Local/Ollama)
+    - Automatic failover (Primary -> Secondary -> Local/Ollama)
     - Cost tracking integration
     - Safe fallback responses
     - Compatibility with LlamaIndex query pipeline nodes
-    
-    Example:
-        >>> from llama_index.core import Document, VectorStoreIndex
-        >>> from llama_index_adapter import LlamaIndexLLM
-        >>> 
-        >>> llm = LlamaIndexLLM(
-        ...     primary_provider="gemini",
-        ...     secondary_provider="groq",
-        ...     model="gemini-1.5-flash"
-        ... )
-        >>> 
-        >>> documents = [Document(text="LangChain is a framework for building with LLMs")]
-        >>> index = VectorStoreIndex.from_documents(documents, llm=llm)
-        >>> query_engine = index.as_query_engine()
-        >>> response = query_engine.query("What is LangChain?")
     """
     
     def __init__(
@@ -74,8 +52,7 @@ class LlamaIndexLLM(CustomLLM):
         max_tokens: int = 2048,
         **kwargs: Any,
     ):
-        """
-        Initialize the LlamaIndexLLM wrapper.
+        """Initialize the LlamaIndexLLM wrapper.
         
         Args:
             primary_provider: Primary LLM provider (e.g., "gemini", "openai", "groq")
@@ -86,17 +63,21 @@ class LlamaIndexLLM(CustomLLM):
             max_tokens: Maximum tokens to generate
             **kwargs: Additional arguments passed to LLMManager
         """
-        super().__init__(**kwargs)
+        # Pass required params to CustomLLM via kwargs, store custom ones after
+        super().__init__(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
         
-        self.primary_provider = primary_provider
-        self.secondary_provider = secondary_provider
-        self.model = model
-        self.local_provider_url = local_provider_url
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        
-        # Initialize the LLMManager
-        self._manager: Optional[LLMManager] = None
+        # Store custom attributes after pydantic init
+        object.__setattr__(self, 'model', model)
+        object.__setattr__(self, 'temperature', temperature)
+        object.__setattr__(self, 'max_tokens', max_tokens)
+        object.__setattr__(self, 'primary_provider', primary_provider)
+        object.__setattr__(self, 'secondary_provider', secondary_provider)
+        object.__setattr__(self, 'local_provider_url', local_provider_url)
         self._initialized = False
     
     async def _initialize(self) -> None:
@@ -201,8 +182,7 @@ def create_llama_index_llm(
     model: str = "gemini-1.5-flash",
     **kwargs: Any,
 ) -> LlamaIndexLLM:
-    """
-    Create a LlamaIndexLLM instance with default settings.
+    """Create a LlamaIndexLLM instance with default settings.
     
     Args:
         primary_provider: Primary LLM provider
@@ -218,21 +198,19 @@ def create_llama_index_llm(
         secondary_provider=secondary_provider,
         model=model,
         **kwargs,
-)
+    )
 
 
 # Compatibility wrapper for use with LlamaIndex query engines
 class LlamaIndexQueryEngineWrapper:
-    """
-    A wrapper that integrates LangChainLLM/LlamaIndexLLM with LlamaIndex query engines.
+    """A wrapper that integrates LlamaIndexLLM with LlamaIndex query engines.
     
     This class provides a bridge between llm-manager and LlamaIndex's query pipeline,
     enabling use of failover/cost-tracking features in vector store queries.
     """
     
     def __init__(self, llm: LlamaIndexLLM):
-        """
-        Initialize the query engine wrapper.
+        """Initialize the query engine wrapper.
         
         Args:
             llm: LlamaIndexLLM instance
@@ -240,8 +218,7 @@ class LlamaIndexQueryEngineWrapper:
         self.llm = llm
     
     async def query(self, query_str: str) -> str:
-        """
-        Query using the llm-manager wrapped LLM.
+        """Query using the llm-manager wrapped LLM.
         
         Args:
             query_str: The query string
@@ -261,8 +238,7 @@ async def generate_with_llama_index_failover(
     temperature: float = 0.7,
     max_tokens: int = 2048,
 ) -> str:
-    """
-    Quick async function to generate text with LlamaIndex-style integration.
+    """Quick async function to generate text with LlamaIndex-style integration.
     
     Args:
         prompt: The prompt to send

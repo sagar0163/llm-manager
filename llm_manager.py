@@ -397,6 +397,7 @@ class ProviderFactory:
         Provider.GEMINI: GeminiProvider,
         Provider.OPENAI: OpenAIProvider,
         Provider.LOCAL: OllamaProvider,
+        Provider.OLLAMA: OllamaProvider,
         Provider.GROQ: GroqProvider,
     }
     

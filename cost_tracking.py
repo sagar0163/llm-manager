@@ -6,13 +6,92 @@ Track API usage and costs across providers
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 from collections import defaultdict
 import json
+import os
+
+# ──────────────────────────────────────────────────────────────────
+# Plugin hook: users can supply their own pricing function
+# Signature: pricing_fn(model: str) -> Dict[str, float] | None
+#   Returns {"input": price_per_1m, "output": price_per_1m} or None
+# ──────────────────────────────────────────────────────────────────
+
+_PRICING_PLUGIN: Optional[Callable[[str], Dict[str, float] | None]] = None
 
 
-# Pricing per 1M tokens (approximate)
-PRICING = {
+def set_pricing_plugin(fn: Callable[[str], Dict[str, float] | None]) -> None:
+    """Set a custom pricing plugin function.
+
+    The function should accept a model name and return a dict with
+    ``input`` and ``output`` price-per-1M-token values, or ``None``
+    if the model is not supported.
+
+    Example::
+
+        def my_pricing(model: str) -> Dict[str, float] | None:
+            # Custom pricing logic
+            return {"input": 0.10, "output": 0.50}
+
+        set_pricing_plugin(my_pricing)
+    """
+    global _PRICING_PLUGIN
+    _PRICING_PLUGIN = fn
+
+
+# ──────────────────────────────────────────────────────────────────
+# JSON config path (community-updated, hot-reloadable)
+# Lookup order: explicit path → ~/.hermes/pricing.json → ./pricing.json
+# ──────────────────────────────────────────────────────────────────
+
+_DEFAULT_CONFIG_PATHS = [
+    os.getenv("LLM_PRICING_CONFIG"),
+    os.path.expanduser("~/.hermes/pricing.json"),
+    "pricing.json",
+]
+
+
+def _load_json_config(paths=None):
+    """Load pricing JSON config from disk.
+
+    Returns the pricing dict from the first valid file found, or {}.
+    """
+    if paths is None:
+        paths = _DEFAULT_CONFIG_PATHS
+
+    for path in paths:
+        if not path:
+            continue
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+        except (FileNotFoundError, json.JSONDecodeError):
+            continue
+    return {}
+
+
+_JSON_PRICING = _load_json_config()
+
+
+def reload_json_config():
+    """Reload the JSON pricing config from disk. Useful for hot-reload."""
+    global _JSON_PRICING
+    _JSON_PRICING = _load_json_config()
+    return _JSON_PRICING
+
+
+def get_json_pricing() -> Dict[str, Dict[str, float]]:
+    """Return the currently loaded JSON pricing config."""
+    return dict(_JSON_PRICING)
+
+
+# ──────────────────────────────────────────────────────────────────
+# Static default pricing (preserved as fallback when no dynamic source available)
+# ──────────────────────────────────────────────────────────────────
+
+DEFAULT_PRICING: Dict[str, Dict[str, float]] = {
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
     "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
     "gpt-4o": {"input": 2.50, "output": 10.00},
@@ -25,6 +104,42 @@ PRICING = {
     "claude-3-sonnet": {"input": 3.00, "output": 15.00},
     "claude-3-haiku": {"input": 0.25, "output": 1.25},
 }
+
+
+# ──────────────────────────────────────────────────────────────────
+# Pricing lookup: plugin → JSON config → static default
+# ──────────────────────────────────────────────────────────────────
+
+def _resolve_pricing(model: str) -> Dict[str, float]:
+    """Resolve pricing for a model using the priority chain.
+
+    1. Pricing plugin (if set)
+    2. JSON config (community-updated)
+    3. Static default pricing
+    """
+
+    # 1. Plugin hook
+    if _PRICING_PLUGIN is not None:
+        try:
+            result = _PRICING_PLUGIN(model)
+            if result is not None:
+                # Ensure we have both input and output keys
+                return {
+                    "input": result.get("input", 0),
+                    "output": result.get("output", 0),
+                }
+        except Exception as e:
+            warnings.warn(f"Pricing plugin error for model '{model}': {e}")
+
+    # 2. JSON config
+    json_pricing = _JSON_PRICING.get(model)
+    if json_pricing:
+        return {"input": json_pricing.get("input", 0), "output": json_pricing.get("output", 0)}
+
+    # 3. Static default
+    return dict(DEFAULT_PRICING.get(model, {"input": 0, "output": 0}))
+
+
 
 
 @dataclass
@@ -71,10 +186,8 @@ class CostTracker:
     """
     
     def __init__(self, storage_path: str = ".llm_costs.json"):
-        storage_path
-        self.storage_path = self.records: List[UsageRecord] = []
-        self._load()
-    
+        self.storage_path = storage_path
+        self.records: List[UsageRecord] = []
     def _load(self):
         """Load records from disk"""
         try:
@@ -145,7 +258,7 @@ class CostTracker:
         """Calculate cost based on model pricing"""
         
         # Get pricing (default to free if unknown)
-        pricing = PRICING.get(model, {"input": 0, "output": 0})
+        pricing = _resolve_pricing(model)
         
         input_cost = (input_tokens / 1_000_000) * pricing.get("input", 0)
         output_cost = (output_tokens / 1_000_000) * pricing.get("output", 0)
